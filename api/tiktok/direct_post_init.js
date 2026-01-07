@@ -1,14 +1,13 @@
 import { parse } from 'cookie';
 
 export default async function handler(req, res) {
-  // 1. CORS Headers
   res.setHeader('Access-Control-Allow-Origin', 'https://vidqueue.online');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-  // 2. DEBUG HEADER: Use this to verify the new code is running!
-  res.setHeader('X-Backend-Version', 'Bare-Metal-Fix-v1');
+  
+  // Debug Header to confirm update
+  res.setHeader('X-Backend-Version', 'Final-Atomic-v3');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -16,22 +15,20 @@ export default async function handler(req, res) {
   const accessToken = cookies.tt_access_token;
 
   if (!accessToken) {
-    return res.status(401).json({ error: 'Not authenticated (Missing Cookie)' });
+    return res.status(401).json({ error: 'Not authenticated' });
   }
 
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const { video_url } = body;
 
-  // 3. THE BARE METAL PAYLOAD
-  // We strip everything else. Just "Private" and "Video Source".
-  const safePayload = {
+  // --- FINAL ATOMIC PAYLOAD ---
+  // 1. No title (optional)
+  // 2. No interaction settings (defaults are fine)
+  // 3. No brand toggles (strictly forbidden for private)
+  // 4. SELF_ONLY privacy (Strict requirement)
+  const atomicPayload = {
     post_info: {
-      // The ONLY field that matters for the audit error
-      privacy_level: 'SELF_ONLY', 
-      
-      // Explicitly disable commercial content to be safe
-      brand_content_toggle: false,
-      brand_organic_toggle: false
+      privacy_level: 'SELF_ONLY' 
     },
     source_info: {
       source: "PULL_FROM_URL",
@@ -46,18 +43,17 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json; charset=UTF-8'
       },
-      body: JSON.stringify(safePayload)
+      body: JSON.stringify(atomicPayload)
     });
 
     const data = await response.json();
     
-    // Check for errors
+    // Log the EXACT error from TikTok for debugging
     if (data.error && data.error.code !== 0) {
-      console.error("TikTok Init Error:", JSON.stringify(data));
-      // Return the full TikTok error for debugging
+      console.error("TikTok Error:", JSON.stringify(data));
       return res.status(400).json({ 
         error: data.error.message, 
-        tiktok_code: data.error.code 
+        tiktok_code: data.error.code
       });
     }
 
