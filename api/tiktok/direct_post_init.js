@@ -22,10 +22,32 @@ export default async function handler(req, res) {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const { post_info, video_url } = body;
 
-  // --- AUDIT FIX: FORCE PRIVACY TO PRIVATE ---
-  // This guarantees the post succeeds for verification
-  post_info.privacy_level = 'SELF_ONLY'; 
-  // -------------------------------------------
+  // --- NUCLEAR AUDIT FIX ---
+  // We completely ignore the frontend "post_info" for risky fields
+  // and construct a perfectly safe payload for the verification video.
+  const safePayload = {
+    post_info: {
+      title: post_info.title || "VidQueue Audit Demo",
+      
+      // FORCE PRIVATE (Required for unaudited apps)
+      privacy_level: 'SELF_ONLY', 
+      
+      // FORCE COMMERCIAL OFF (Required when Private)
+      brand_content_toggle: false,
+      brand_organic_toggle: false,
+
+      // Default interactions
+      disable_comment: post_info.disable_comment ?? false,
+      disable_duet: true, // Private posts can't be duetted anyway
+      disable_stitch: true,
+      video_cover_timestamp_ms: 1000
+    },
+    source_info: {
+      source: "PULL_FROM_URL",
+      video_url: video_url
+    }
+  };
+  // -------------------------
 
   try {
     const response = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
@@ -34,13 +56,7 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json; charset=UTF-8'
       },
-      body: JSON.stringify({
-        post_info,
-        source_info: {
-          source: "PULL_FROM_URL",
-          video_url: video_url
-        }
-      })
+      body: JSON.stringify(safePayload)
     });
 
     const data = await response.json();
@@ -48,6 +64,7 @@ export default async function handler(req, res) {
     // Check for errors from TikTok
     if (data.error && data.error.code !== 0) {
       console.error("TikTok Init Error:", JSON.stringify(data));
+      // Send the exact error back to the frontend UI
       return res.status(400).json({ error: data.error.message || "TikTok API Error" });
     }
 
