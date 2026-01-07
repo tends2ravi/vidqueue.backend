@@ -6,8 +6,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // Debug Header to confirm update
-  res.setHeader('X-Backend-Version', 'Final-Atomic-v3');
+  // Debug Header: Look for this to confirm the update!
+  res.setHeader('X-Backend-Version', 'Explicit-Disable-v4');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -21,14 +21,24 @@ export default async function handler(req, res) {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const { video_url } = body;
 
-  // --- FINAL ATOMIC PAYLOAD ---
-  // 1. No title (optional)
-  // 2. No interaction settings (defaults are fine)
-  // 3. No brand toggles (strictly forbidden for private)
-  // 4. SELF_ONLY privacy (Strict requirement)
-  const atomicPayload = {
+  // --- EXPLICIT DISABLE PAYLOAD ---
+  // We explicitly set every possible restriction to ensure
+  // "Private" mode is valid.
+  const explicitPayload = {
     post_info: {
-      privacy_level: 'SELF_ONLY' 
+      title: "VidQueue Audit Demo",
+      privacy_level: 'SELF_ONLY',
+      
+      // CRITICAL: Explicitly disable all interactions
+      disable_comment: true,
+      disable_duet: true,
+      disable_stitch: true,
+      
+      // Explicitly disable commercial tools
+      brand_content_toggle: false,
+      brand_organic_toggle: false,
+      
+      video_cover_timestamp_ms: 1000
     },
     source_info: {
       source: "PULL_FROM_URL",
@@ -43,17 +53,17 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json; charset=UTF-8'
       },
-      body: JSON.stringify(atomicPayload)
+      body: JSON.stringify(explicitPayload)
     });
 
     const data = await response.json();
     
-    // Log the EXACT error from TikTok for debugging
     if (data.error && data.error.code !== 0) {
       console.error("TikTok Error:", JSON.stringify(data));
       return res.status(400).json({ 
         error: data.error.message, 
-        tiktok_code: data.error.code
+        tiktok_code: data.error.code,
+        payload_debug: explicitPayload
       });
     }
 
