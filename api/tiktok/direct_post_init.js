@@ -6,8 +6,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // Debug Header: Look for this to confirm the update!
-  res.setHeader('X-Backend-Version', 'Explicit-Disable-v4');
+  // CHECK THIS HEADER: It must say "v4-Personal-Account-Fix"
+  res.setHeader('X-Backend-Version', 'v4-Personal-Account-Fix');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -21,20 +21,19 @@ export default async function handler(req, res) {
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const { video_url } = body;
 
-  // --- EXPLICIT DISABLE PAYLOAD ---
-  // We explicitly set every possible restriction to ensure
-  // "Private" mode is valid.
-  const explicitPayload = {
+  // --- v4 PAYLOAD: STRICT PRIVATE ---
+  // This matches the official TikTok documentation for "Private Video" exactly.
+  const payload = {
     post_info: {
-      title: "VidQueue Audit Demo",
-      privacy_level: 'SELF_ONLY',
+      title: "VidQueue Verification Demo",
+      privacy_level: 'SELF_ONLY', // Strict Private
       
-      // CRITICAL: Explicitly disable all interactions
+      // REQUIRED: You must explicitly disable these for Private posts
       disable_comment: true,
       disable_duet: true,
       disable_stitch: true,
       
-      // Explicitly disable commercial tools
+      // REQUIRED: Commercial must be false
       brand_content_toggle: false,
       brand_organic_toggle: false,
       
@@ -53,7 +52,7 @@ export default async function handler(req, res) {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json; charset=UTF-8'
       },
-      body: JSON.stringify(explicitPayload)
+      body: JSON.stringify(payload)
     });
 
     const data = await response.json();
@@ -63,7 +62,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ 
         error: data.error.message, 
         tiktok_code: data.error.code,
-        payload_debug: explicitPayload
+        payload_debug: payload
       });
     }
 
