@@ -1,13 +1,14 @@
 import { parse } from 'cookie';
 
 export default async function handler(req, res) {
+  // 1. Standard Headers
   res.setHeader('Access-Control-Allow-Origin', 'https://vidqueue.online');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // Debug Header
-  res.setHeader('X-Backend-Version', 'FileSize-Fix-v6');
+  // Debug Header: Look for this in Network Tab to confirm update
+  res.setHeader('X-Backend-Version', 'Super-Atomic-v7');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -16,30 +17,26 @@ export default async function handler(req, res) {
 
   if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
-  // 1. Get the video size sent from Frontend
+  // 2. Get Video Size
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const { video_size } = body;
 
-  if (!video_size || video_size <= 0) {
+  if (!video_size) {
     return res.status(400).json({ error: 'Missing video_size' });
   }
 
-  // 2. Prepare Payload with EXACT sizes
-  // For the audit, we assume a single-chunk upload (files < 64MB)
+  // 3. SUPER ATOMIC PAYLOAD
+  // We remove EVERYTHING except the privacy level.
+  // No title. No comments toggle. No brand toggle.
+  // We let TikTok apply the user's default account settings.
   const payload = {
     post_info: {
-      title: "VidQueue Verification",
-      privacy_level: 'SELF_ONLY',
-      disable_comment: true,
-      disable_duet: true,
-      disable_stitch: true,
-      brand_content_toggle: false,
-      brand_organic_toggle: false
+      privacy_level: 'SELF_ONLY' 
     },
     source_info: {
       source: "FILE_UPLOAD",
-      video_size: video_size,        // MUST match actual file size
-      chunk_size: video_size,        // Since we upload in 1 request, chunk = total
+      video_size: video_size,
+      chunk_size: video_size,
       total_chunk_count: 1
     }
   };
@@ -58,9 +55,11 @@ export default async function handler(req, res) {
 
     if (data.error && data.error.code !== 0) {
       console.error("TikTok Init Error:", JSON.stringify(data));
+      // Return details for debugging
       return res.status(400).json({ 
         error: data.error.message, 
-        tiktok_code: data.error.code 
+        tiktok_code: data.error.code,
+        sent_payload: payload 
       });
     }
 
