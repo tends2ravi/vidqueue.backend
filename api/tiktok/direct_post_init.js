@@ -1,14 +1,13 @@
 import { parse } from 'cookie';
 
 export default async function handler(req, res) {
-  // 1. Standard Headers
   res.setHeader('Access-Control-Allow-Origin', 'https://vidqueue.online');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // Debug Header: Look for this in Network Tab to confirm update
-  res.setHeader('X-Backend-Version', 'Super-Atomic-v7');
+  // Debug Header: Confirm you are running v8
+  res.setHeader('X-Backend-Version', 'Explicit-FileUpload-v8');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -17,21 +16,28 @@ export default async function handler(req, res) {
 
   if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
-  // 2. Get Video Size
+  // 1. Get Video Size
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const { video_size } = body;
 
-  if (!video_size) {
-    return res.status(400).json({ error: 'Missing video_size' });
-  }
+  if (!video_size) return res.status(400).json({ error: 'Missing video_size' });
 
-  // 3. SUPER ATOMIC PAYLOAD
-  // We remove EVERYTHING except the privacy level.
-  // No title. No comments toggle. No brand toggle.
-  // We let TikTok apply the user's default account settings.
+  // 2. THE COMPLIANT PAYLOAD
+  // We explicitly turn OFF every single social/commercial feature.
+  // This leaves TikTok no room to interpret the request as "Public" or "Commercial".
   const payload = {
     post_info: {
-      privacy_level: 'SELF_ONLY' 
+      title: "VidQueue Verification",
+      privacy_level: 'SELF_ONLY',
+      
+      // REQUIRED: Explicitly disable all social interactions
+      disable_comment: true,
+      disable_duet: true,
+      disable_stitch: true,
+      
+      // REQUIRED: Explicitly disable commercial tools
+      brand_content_toggle: false,
+      brand_organic_toggle: false
     },
     source_info: {
       source: "FILE_UPLOAD",
@@ -55,7 +61,6 @@ export default async function handler(req, res) {
 
     if (data.error && data.error.code !== 0) {
       console.error("TikTok Init Error:", JSON.stringify(data));
-      // Return details for debugging
       return res.status(400).json({ 
         error: data.error.message, 
         tiktok_code: data.error.code,
