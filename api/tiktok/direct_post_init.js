@@ -6,42 +6,33 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // CHECK THIS HEADER: It must say "v4-Personal-Account-Fix"
-  res.setHeader('X-Backend-Version', 'v4-Personal-Account-Fix');
+  // Debug Header: Confirm this version is running
+  res.setHeader('X-Backend-Version', 'FileUpload-v5');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const cookies = parse(req.headers.cookie || '');
   const accessToken = cookies.tt_access_token;
 
-  if (!accessToken) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
+  if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  const { video_url } = body;
-
-  // --- v4 PAYLOAD: STRICT PRIVATE ---
-  // This matches the official TikTok documentation for "Private Video" exactly.
+  // 1. FILE UPLOAD PAYLOAD
+  // We strictly request FILE_UPLOAD mode.
   const payload = {
     post_info: {
-      title: "VidQueue Verification Demo",
+      title: "VidQueue Verification",
       privacy_level: 'SELF_ONLY', // Strict Private
-      
-      // REQUIRED: You must explicitly disable these for Private posts
       disable_comment: true,
       disable_duet: true,
       disable_stitch: true,
-      
-      // REQUIRED: Commercial must be false
       brand_content_toggle: false,
-      brand_organic_toggle: false,
-      
-      video_cover_timestamp_ms: 1000
+      brand_organic_toggle: false
     },
     source_info: {
-      source: "PULL_FROM_URL",
-      video_url: video_url
+      source: "FILE_UPLOAD",
+      video_size: 0, // 0 allows TikTok to accept any size initially
+      chunk_size: 10000000, // 10MB chunk size
+      total_chunk_count: 1
     }
   };
 
@@ -56,16 +47,13 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    
+
     if (data.error && data.error.code !== 0) {
-      console.error("TikTok Error:", JSON.stringify(data));
-      return res.status(400).json({ 
-        error: data.error.message, 
-        tiktok_code: data.error.code,
-        payload_debug: payload
-      });
+      console.error("TikTok Init Error:", JSON.stringify(data));
+      return res.status(400).json({ error: data.error.message, tiktok_code: data.error.code });
     }
 
+    // Success! Return the upload_url to the frontend
     return res.status(200).json(data);
   } catch (error) {
     return res.status(500).json({ error: error.message });
