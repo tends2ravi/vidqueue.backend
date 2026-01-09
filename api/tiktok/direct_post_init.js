@@ -6,8 +6,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // Debug Header: Confirm you are running v8
-  res.setHeader('X-Backend-Version', 'Explicit-FileUpload-v8');
+  // Debug Header: Look for v10
+  res.setHeader('X-Backend-Version', 'NoTitle-ScopeFix-v10');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -16,26 +16,22 @@ export default async function handler(req, res) {
 
   if (!accessToken) return res.status(401).json({ error: 'Not authenticated' });
 
-  // 1. Get Video Size
   const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
   const { video_size } = body;
 
   if (!video_size) return res.status(400).json({ error: 'Missing video_size' });
 
-  // 2. THE COMPLIANT PAYLOAD
-  // We explicitly turn OFF every single social/commercial feature.
-  // This leaves TikTok no room to interpret the request as "Public" or "Commercial".
+  // 3. THE CLEANEST PAYLOAD POSSIBLE
+  // No Title. No Defaults. Just Privacy + Disables.
   const payload = {
     post_info: {
-      title: "VidQueue Verification",
+      // REMOVED: title (Sending no caption is safer for audit)
       privacy_level: 'SELF_ONLY',
       
-      // REQUIRED: Explicitly disable all social interactions
       disable_comment: true,
       disable_duet: true,
       disable_stitch: true,
       
-      // REQUIRED: Explicitly disable commercial tools
       brand_content_toggle: false,
       brand_organic_toggle: false
     },
